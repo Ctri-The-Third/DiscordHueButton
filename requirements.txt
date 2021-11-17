@@ -1,0 +1,2 @@
+gpiozero
+discord.py
