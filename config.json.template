@@ -1,0 +1,13 @@
+{
+  "usersToWatchFor": [
+    12345
+  ],
+  "announcementChannels": [
+    12345
+  ],
+  "despairMessages": [
+    "This pressing is out of control. He must be stopped",
+    "I'm a simple bot. I see button, I press it.",
+    "For thousands of years I lay dormant... who dares to disturb my slumber",
+  ]
+}

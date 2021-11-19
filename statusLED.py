@@ -12,7 +12,7 @@ class statusLight:
         self._pulsespeed = 0.01
         self._pulseValue = 0
 
-        
+        self._stateFlag = "pulsing"
         
 
         self._flashEndTime = datetime.now()
@@ -25,13 +25,23 @@ class statusLight:
         #sets instruciton to flash for half a second
         self._flashEndTime = datetime.now() + timedelta(seconds = duration)
         self._flashRate = rate 
+        self._stateFlag = "flashing"
         pass 
+
+
+    def setPulseSpeed(self, speed:int) -> None:
+        """Set a rate of change betwee 0 and 1. The brightness value changes by this amount every 0.01 seconds - so 0.01 means one full cycle every 2 seconds"""
+        self._pulsespeed = speed
+
 
     def _loop(self):
         while self._continueLoop:
-            if datetime.now() < self._flashEndTime:
+            if datetime.now() < self._flashEndTime and self._stateFlag == "flashing":
                 newValue = self._newFlashValue()
-            else:
+            elif datetime.now() >= self._flashEndTime and self._stateFlag == "flashing":
+                self._stateFlag = "pulsing"
+                self.setPulseSpeed(0.01)
+            else: 
                 newValue = self._newPulseValue()
                 newValue = self._bounce(newValue)
             newValue = self._limitNewValue(newValue)
