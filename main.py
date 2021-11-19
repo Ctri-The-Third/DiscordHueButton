@@ -99,8 +99,8 @@ class ButtonBot(discord.Client):
         timeSinceHours = math.floor(timeSince.seconds / 60 /60)
         timeSinceMinutes = math.floor(timeSince.seconds / 60)
 
-        for channelTargetIDs in self.config.channels:
-            target = self.get_channel(channelTargetIDs)
+        for channelTargetID in self.config.channels:
+            target = self.get_channel(channelTargetID)
             if isinstance(target,discord.TextChannel):
                 despairMessage = self.config.getDespairMessage()
                 messageText = "**C'tri pressed The Button** at {8}\nIt has now been pressed {0} times\nIt had been {1} day{2}, {3} hour{4}, and {5} minute{6} since the button was pressed.\n\n> {7}".format(
@@ -114,10 +114,12 @@ class ButtonBot(discord.Client):
                     despairMessage,
                     datetime.datetime.now().strftime(r"%d-%b %H:%M")
                 )
-                if timeSinceHours <= 1:
-                    await self._tryUpdateMessage(messageText,channelTargetIDs)
+                targetMessageID = 0 if channelTargetID not in self.messages else self.messages[channelTargetID]
+                if timeSinceHours <= 1 or targetMessageID == target.last_message_id:
+                #if targetMessageID == target.last_message_id:
+                    await self._tryUpdateMessage(messageText,channelTargetID)
                 else:
-                    await self._sendMessageToChannel(messageText,channelTargetIDs)
+                    await self._sendMessageToChannel(messageText,target)
                     
 
         self.config.incrementPresses()
@@ -151,7 +153,6 @@ class ButtonBot(discord.Client):
 
     
     async def _sendMessageToChannel(self,messageText:str,channel:discord.channel):
-        
         await channel.send(messageText)
         
     def defaultIntents() -> str:
