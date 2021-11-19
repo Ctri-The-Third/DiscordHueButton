@@ -44,7 +44,7 @@ class ButtonBot(discord.Client):
         if message.author.id != self.user.id:
             found = False
             for user in message.mentions: 
-                if self.config.isUserWatched(user.id):
+                if self.config.isUserWatched(user.id)  or user.id == self.user.id:
                     found = True
                     memberName = user.name
         
@@ -74,12 +74,21 @@ class ButtonBot(discord.Client):
         if  self.config.isUserWatched(message.author.id):
             if self.registerMessageRegex.match(message.clean_content):
                 self.config.registerChannel(message.channel.id)
-                await message.reply("Got it, will update this channel with presses! :slight_smile:")                
+                try: 
+                    await message.reply("Got it, will update this channel with presses! :slight_smile:")                
+                except Exception as e:
+                    logging.warning("Couldn't reply to a message - possibly missing the read_message_history permission? _checkForRegisterMessage")
+                    await message.channel.send("Got it, will update this channel with presses! :slight_smile:")
     async def _checkForUnregisterMessage(self,message:discord.message):
         if  self.config.isUserWatched(message.author.id):
             if self.unregisterMessageRegex.match(message.clean_content):
                 self.config.unregisterChannel(message.channel.id)
-                await message.reply("Okay, won't update this channel with presses! :+1:")
+                try:
+                    await message.reply("Okay, won't update this channel with presses! :+1:")
+
+                except Exception as e:
+                    logging.warning("Couldn't reply to a message - possibly missing the read_message_history permission? _checkForRegisterMessage")
+                    await message.channel.send("Okay, won't update this channel with presses! :+1:")
 
     async def onButtonPressed(self):
 
@@ -136,7 +145,7 @@ class ButtonBot(discord.Client):
             return 
         except Exception as e:
 
-            logging.error("couldn't retrieve an old message: %s" % e)
+            logging.warning("couldn't retrieve an old message to update: %s" % e)
             await self._sendMessageToChannel(messageText,channel)
             return 
 
