@@ -43,6 +43,11 @@ class ButtonBot(discord.Client):
         memberName = ""
         if message.author.id != self.user.id:
             found = False
+            if message.reference is not None:
+                try: 
+                    message.mentions.pop(0)
+                except Exception as e:
+                    pass
             for user in message.mentions: 
                 if self.config.isUserWatched(user.id)  or user.id == self.user.id:
                     found = True
