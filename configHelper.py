@@ -8,9 +8,9 @@ class configHelper():
     def __init__(self) -> None:
         self.logger = logging.getLogger("configHelper")
         
-
-        self.messages = {}
-        self.channels = {}
+        self.openMessages = []
+        self.messages = []
+        self.channels = [] #the ID is the key, the object is the 
         keys = {} 
 
         try: 
