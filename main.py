@@ -19,7 +19,7 @@ class ButtonBot(discord.Client):
         self.config = configHelper()
         self.buttonLED = statusLED.statusLight(18)
         self.button = gpiozero.DigitalInputDevice(4)
-        self.messages = {} #key is channel ID, value is message ID 
+        
         self.matchingRegex = re.compile(r"""(It had been [0-9]* days*, [0-9]* hours*, and [0-9]* minutes* since the button was pressed.)""")
         self.registerMessageRegex = re.compile(r"""!btn register""")
         self.unregisterMessageRegex = re.compile(r"""!btn unregister""")
@@ -41,38 +41,58 @@ class ButtonBot(discord.Client):
 
     async def _checkForMentions(self, message:discord.message) -> None:
         memberName = ""
-        if message.author.id != self.user.id:
+        if message.author.id != self.user.id and message.channel.type == discord.ChannelType.text:
             found = False
+            foundUsers = {}
             if message.reference is not None:
                 try: 
                     message.mentions.pop(0)
                 except Exception as e:
                     pass
+            
             for user in message.mentions: 
-                if self.config.isUserWatched(user.id)  or user.id == self.user.id:
+                if self.config.isUserWatched(user.id):
                     found = True
+                    foundUsers[user.id] = user
                     memberName = user.name
+                elif user.id == self.user.id:
+                    for userID in self.config.users:
+                        foundUsers[userID] = self.get_user(userID)
         
             for role in message.role_mentions:
                 for member in role.members:
                     if self.config.isUserWatched(member.id):
+                        foundUsers[member.id] = member
                         found = True
                         memberName = member.name
 
             if found: 
+                self.buttonLED.setPulseSpeed(0.04)
                 try:
+
+                    tcName = self._tryGetChannelName(message)
+                    tgName = self._tryGetGuildName(message)
+                    
+                    
                     await message.reply("Looking for {}? The beacon has been lit. :+1:".format(memberName))
+                    for userID in foundUsers:
+                        user = foundUsers[userID]
+                        await user.send("Hey there {}, {} on [{}]-[{}] is looking for you! Here's a direct link =)\n{}".format(
+                        user.name, message.author.name,
+                        tgName, tcName,
+                        message.jump_url
+                    ))
                 except Exception as e:
                     await message.channel.send("Looking for {}? The beacon has been lit. :+1:".format(memberName))
 
-                self.buttonLED.setPulseSpeed(0.04)
+                
             return 
     async def _checkForButtonMessages(self, message:discord.message) -> None:
         if message.author.id == self.user.id:
             #check if it's one of our messages, if so register its' ID for updates.
             result = self.matchingRegex.search(message.clean_content)
             if result is not None: 
-                bot.messages[message.channel.id] = message.id
+                bot.config.messages[message.channel.id] = message.id
             return
 
     async def _checkForRegisterMessage(self,message:discord.message):
@@ -119,7 +139,7 @@ class ButtonBot(discord.Client):
                     despairMessage,
                     datetime.datetime.now().strftime(r"%d-%b %H:%M")
                 )
-                targetMessageID = 0 if channelTargetID not in self.messages else self.messages[channelTargetID]
+                targetMessageID = 0 if channelTargetID not in self.config.messages else self.config.messages[channelTargetID]
                 if timeSinceHours <= 1 or targetMessageID == target.last_message_id:
                 #if targetMessageID == target.last_message_id:
                     await self._tryUpdateMessage(messageText,channelTargetID)
@@ -139,12 +159,12 @@ class ButtonBot(discord.Client):
             channel = await bot.fetch_channel(channelDeets)
             await self._sendMessageToChannel(messageText,channel)
             return 
-        if not channel.id in self.messages:
+        if not channel.id in self.config.messages:
             await self._sendMessageToChannel(messageText,channel)
             return
 
         try: 
-            resultMessage  = await channel.fetch_message(self.messages[channel.id])
+            resultMessage  = await channel.fetch_message(self.config.messages[channel.id])
             if resultMessage.created_at >= self.config.lastPressed - datetime.timedelta(hours=1):
                 await resultMessage.edit(content=messageText)
             else: 
@@ -164,7 +184,19 @@ class ButtonBot(discord.Client):
             intents = discord.Intents.default()
             intents.members = True 
 
+    def _tryGetGuildName(self,message:discord.message) -> str:
+        if message.channel.type == discord.ChannelType.text:
+            return message.channel.guild.name
+        else:
+            return "Not from a guild"
+        pass 
 
+    def _tryGetChannelName(self,message:discord.message) -> str:
+        if message.channel.type == discord.ChannelType.private:
+            return "DM channel"
+        else:
+            return message.channel.name
+        pass 
 
 def GPIOActions(bot: ButtonBot):
     

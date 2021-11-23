@@ -8,7 +8,9 @@ class configHelper():
     def __init__(self) -> None:
         self.logger = logging.getLogger("configHelper")
         
-        self.channels = []
+
+        self.messages = {}
+        self.channels = {}
         keys = {} 
 
         try: 
@@ -22,6 +24,20 @@ class configHelper():
             self.lastPressed = datetime.datetime.strptime(keys["lastPressed"],r"%Y-%m-%d %H:%M:%S")
         except Exception as e:
             self.logger.error("Couldn't properly parse 'last pressed' %s",e)
+
+        self.messages = {} if "lastMessages" not in keys else keys["lastMessages"]
+        for key in self.messages:
+            
+            try:
+                value = self.messages[key]
+                self.messages.pop(key)
+                newKey = int(key)
+                self.messages[newKey] = value
+            except Exception as e:
+                logging.warning("Couldn't properly convert a lastMessage key from string to int - [%s]", key)
+                
+                
+                
 
 
         try: 
@@ -77,6 +93,7 @@ class configHelper():
             return True
         return False
 
+    
 
     
     def saveProgress(self):
@@ -84,7 +101,7 @@ class configHelper():
         f =  open("save.json.new","w") 
         outObj["timesPressed"] = self.presses
         outObj["lastPressed"] = datetime.datetime.strftime(self.lastPressed, r"%Y-%m-%d %H:%M:%S")
-
+        outObj["lastMessages"] = self.messages
         try:
             outStr = json.dumps(outObj, indent=2)
             f.write(outStr)
