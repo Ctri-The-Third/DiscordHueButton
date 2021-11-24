@@ -8,9 +8,8 @@ class configHelper():
     def __init__(self) -> None:
         self.logger = logging.getLogger("configHelper")
         
-
-        self.messages = {}
-        self.channels = {}
+        self.openMessages = []
+        self.channels = [] #the ID is the key, the object is the 
         keys = {} 
 
         try: 
@@ -25,16 +24,8 @@ class configHelper():
         except Exception as e:
             self.logger.error("Couldn't properly parse 'last pressed' %s",e)
 
-        self.messages = {} if "lastMessages" not in keys else keys["lastMessages"]
-        for key in self.messages:
-            
-            try:
-                value = self.messages[key]
-                self.messages.pop(key)
-                newKey = int(key)
-                self.messages[newKey] = value
-            except Exception as e:
-                logging.warning("Couldn't properly convert a lastMessage key from string to int - [%s]", key)
+        self.openMessages = [] if "openMessages" not in keys else keys["openMessages"]
+
                 
                 
                 
@@ -67,7 +58,13 @@ class configHelper():
         selection = random.randint(0,len(self.despairMessages)-1)
         return self.despairMessages[selection]
 
+    def registerOpenMessage(self,messageID,channelID):
+        self.openMessages.append({"message":messageID,"channel":channelID})
+        self.saveProgress()
 
+    def unregisterOpenMessage(self,messageID,channelID):
+        self.openMessages.remove({"message":messageID,"channel":channelID})
+        self.saveProgress()
     def registerChannel(self, channelID):
         if channelID not in self.channels:
             self.channels.append(channelID)
@@ -101,7 +98,7 @@ class configHelper():
         f =  open("save.json.new","w") 
         outObj["timesPressed"] = self.presses
         outObj["lastPressed"] = datetime.datetime.strftime(self.lastPressed, r"%Y-%m-%d %H:%M:%S")
-        outObj["lastMessages"] = self.messages
+        outObj["openMessages"] = self.openMessages
         try:
             outStr = json.dumps(outObj, indent=2)
             f.write(outStr)
@@ -130,7 +127,6 @@ class configHelper():
             outObj = {}
             outObj["usersToWatchFor"] = self.users
 
-            outObj["announcementChannels"] = self.channels
             
             
             outObj["despairMessages"] = self.despairMessages

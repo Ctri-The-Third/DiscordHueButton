@@ -34,6 +34,9 @@ class statusLight:
         self._pulsespeed = speed
 
 
+    def terminate(self):
+        self._continueLoop = False
+
     def _loop(self):
         while self._continueLoop:
             if datetime.now() < self._flashEndTime and self._stateFlag == "flashing":

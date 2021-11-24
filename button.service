@@ -1,0 +1,13 @@
+[Unit]
+Description=A discord bot that interacts with GPIO pins to receive instructions
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/bin/bash /home/pi/github/DiscordHueButton/initscript
+RestartSec=15
+Restart=always
+KillMode=mixed
+
+[Install] 
+WantedBy=multi-user.target
