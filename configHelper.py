@@ -27,10 +27,6 @@ class configHelper():
         self.openMessages = [] if "openMessages" not in keys else keys["openMessages"]
 
                 
-                
-                
-
-
         try: 
             with open("config.json","r") as f :
                 keys = json.load(f)
@@ -49,6 +45,9 @@ class configHelper():
                 if isinstance(userID,int):
                     self.users.append(userID)
         self.despairMessages = [] if "despairMessages" not in keys else keys["despairMessages"]
+        self.notificationEndpoint = keys.get("notificationEndpointHost")
+        self.notificationAuthtoken = keys.get("notificationEndpointHeaderToken")
+        self.notificationEnabled = True if self.notificationEndpoint is not None and self.notificationAuthtoken is not None else None
 
 
     def getDespairMessage(self) -> str:
@@ -77,7 +76,7 @@ class configHelper():
 
     def incrementPresses(self ):
         self.presses += 1 
-        
+       
         pass 
 
     def updateLastPressed(self, timestamp = datetime.datetime.now()):
