@@ -10,7 +10,7 @@ import asyncio
 import math 
 import statusLED
 import re
-
+import requests
 from configHelper import *
 LOGOUTPUT = "log"
 
@@ -106,8 +106,27 @@ Each time they press it, I keep track. Curious? Check in with !btn stats. I used
                             break
 
             if found: 
+
                 self.buttonLED.setPulseSpeed(0.04)
                 await self.notifyPersonOfInterest(message,foundUser)
+                desc = """Hey there {3}
+
+Looks like {0} ({1}#{2}) is trying to get your attention.
+The mention originated on **{4}** in the server **{5}**. Here's a [direct link]({6})
+
+---------------------
+Message content copied below for you:
+
+{7}""".format( message.author.nick, message.author.name,message.author.discriminator,
+                foundUser.name,
+                self._tryGetChannelName(message),
+                self._tryGetGuildName(message),
+                message.jump_url,
+                message.clean_content)
+
+                self.maybeNotifyWebhook(title = "Discord alert - {0} ({1}#{2}) ".format(message.author.nick,message.author.name,message.author.discriminator),
+                desc=desc,
+                author="TheButton:{}#{}".format(message.author.name,message.author.discriminator))
     async def notifyPersonOfInterest(self,message, foundUser):
         try:
 
@@ -176,8 +195,23 @@ Each time they press it, I keep track. Curious? Check in with !btn stats. I used
         self.config.incrementPresses()
         self.config.updateLastPressed(datetime.datetime.now())
         self.config.saveProgress()
-    
+        self.maybeNotifyWebhook()
+
+    def maybeNotifyWebhook(self,title=None,desc=None,author=None):
+        if self.config.notificationEnabled:
+            sendMessage = True if title is not None and desc is not None and author is not None else False
+            url = self.config.notificationEndpoint % (sendMessage)
+            headers = {"Authorization":"Basic {}".format(self.config.notificationAuthtoken)}
+            body = json.dumps({"title":title,"description":desc,"author":author})
+            
+            try:
+                
+                requests.post(url=url,headers=headers,data=body)
+            except Exception as e:
+                logging.warning("Tried and failed to hit the notification endpoint- %s",e)
+                print("Tried and failed to hit the notification endpoint - %s",e)
         return 
+
 
     async def _tryUpdateMessage(self,messageText,channelDeets):
         channel = bot.get_channel(channelDeets)
