@@ -1,20 +1,32 @@
-from typing import NewType
-from gpiozero import PWMLED
 
+
+from types import MethodType
+from gpiozero import PWMLED, DigitalInputDevice
+import math 
 from threading import Thread
 from datetime import datetime, timedelta 
 import time
-class statusLight:
-    def __init__(self,pin):
-        self._LED = PWMLED(pin)
-        
+
+class buttonWithLED:
+    def __init__(self,LEDpin,BTNpin,notificationEmoji,notificationShade):
+        self.notificationEmoji = notificationEmoji
+        self.notificationShade = notificationShade
+        self._LED = PWMLED(LEDpin)
+        self._button = DigitalInputDevice(BTNpin)
         self._pulsedirection = 1
         self._pulsespeed = 0.01
         self._pulseValue = 0
 
+        self._timeLastPresed = datetime.now()
+        self._button.when_activated = self._onPress
+        self._button.when_deactivated = self._onRelease
         self._stateFlag = "pulsing"
         
+        self.onShortPress = None
+        self.onLongPress = None
+        self.is_active = False
 
+        self._timePressed = 0
         self._flashEndTime = datetime.now()
         self._flashRate = 0.5
         self._continueLoop = True 
@@ -93,6 +105,27 @@ class statusLight:
         #at 0.1 we want off, at 0.0 we want off  0.1 / 0.2 = 0.5 
         #at 0.2 we want on at 0.3 we want on 
         #at 0.4 we want off 
-
-        
         return 1 
+
+    def _onPress(self):
+        self._timeLastPresed = datetime.now()
+        self.is_active = True
+        timeString = self._timeLastPresed.strftime("%y-%m-%d %H:%M:%S.%f")
+        pass 
+    def _onRelease(self):
+        targetTime =  self._timeLastPresed + timedelta(milliseconds= 500)
+        diff = math.floor( (targetTime - datetime.now()).total_seconds() * 1000)
+        print(diff)
+        if diff > 0:
+            if isinstance( self.onShortPress , MethodType):
+                self.onShortPress(self)
+            pass 
+        elif targetTime <= datetime.now():
+            if isinstance( self.onLongPress , MethodType):
+                self.onLongPress(self)
+            pass 
+        else:
+            print("?")
+        self.is_active = False
+
+    

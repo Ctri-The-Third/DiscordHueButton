@@ -11,7 +11,7 @@ class configHelper():
         self.openMessages = []
         self.channels = [] #the ID is the key, the object is the 
         keys = {} 
-
+        self.buttons = [] 
         try: 
             with open("save.json","r") as f :
                 keys = json.load(f)
@@ -38,7 +38,9 @@ class configHelper():
         
             
         self.channels = [] if "announcementChannels" not in keys else keys["announcementChannels"]
-
+        btns = keys.get("buttons")
+        for btn in btns:
+            self.buttons.append(buttonCfg(btn))
         self.users = []
         if "usersToWatchFor" in keys:
             for userID in keys["usersToWatchFor"]:
@@ -153,3 +155,10 @@ class configHelper():
         
         
         
+class buttonCfg():
+    def __init__(self, dict:dict) -> None:
+        self.LEDOutPin = int(dict.get("LEDOutPin"))
+        self.btnInPin = int(dict.get("btnInPin"))
+        self.btnReactEmoji = dict.get("btnReactEmoji")
+        self.hueShade = dict.get("hueHue")
+        pass

@@ -9,5 +9,18 @@
     "This pressing is out of control. He must be stopped",
     "I'm a simple bot. I see button, I press it.",
     "For thousands of years I lay dormant... who dares to disturb my slumber",
+  ],
+  "notificationEndpointHost":"http://hostname:portname/notify/message/%s",
+  "notificationEndpointHeaderToken":"a base 64 encoded string, we assume",
+  "buttons":[
+    {"LEDOutPin" : 14,
+    "btnInPin":4,
+    "btnReactEmoji":"🔴",
+    "hueHue" : 0},
+    {"LEDOutPin" : 15,
+      "btnInPin":17,
+      "btnReactEmoji":"🔵",
+      "hueHue" : 9875455}
   ]
+
 }
