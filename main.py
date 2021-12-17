@@ -1,17 +1,10 @@
 import logging
-import threading
 from discord import channel, client
 from gpiozero import PWMLED
 from time import sleep
 import discord
-import asyncio
-import gpiozero
 import json
-import asyncio
-import math 
-import statusLED
-import re
-import requests
+import subprocess
 
 from configHelper import *
 from buttonBot import *
@@ -19,6 +12,7 @@ LOGOUTPUT = "log"
 
         
 if __name__ == "__main__":
+    logging.basicConfig(filename="thebutton.log", level = logging.WARN, format="%(asctime)s:%(levelname)s:%(message)s")
     intents = discord.Intents(
         messages=True, #need to read messages 
         emojis=True, 
@@ -35,6 +29,16 @@ if __name__ == "__main__":
         
     except:
         logging.error("Bot execution failed, defaulting to bot-less mode")
+    for i in range(0,4):
+        #check wifi state, ping google, on success break
+        try:
+            wifistate =  subprocess.run("iwconfig", capture_output=True)
+            result = requests.get(url="http://www.gstatic.com/generate_204")
+            if result.status_code == 204:
+                break
+        except Exception as e:
+            logging.warn("Couldn't connect to the internet - %s", e)
+        sleep(i*5)
     bot.run(token)
     
     
