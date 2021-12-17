@@ -11,6 +11,7 @@ class buttonWithLED:
     def __init__(self,LEDpin,BTNpin,notificationEmoji,notificationShade):
         self.notificationEmoji = notificationEmoji
         self.notificationShade = notificationShade
+        self.identifier = BTNpin
         self._LED = PWMLED(LEDpin)
         self._button = DigitalInputDevice(BTNpin)
         self._pulsedirection = 1
@@ -30,7 +31,7 @@ class buttonWithLED:
         self._flashEndTime = datetime.now()
         self._flashRate = 0.5
         self._continueLoop = True 
-        self._loopThread = Thread(target=self._loop)
+        self._loopThread = Thread(target=self._loop, daemon=True)
         self._loopThread.start()
 
     def flash(self,rate = 0.5,duration = 2 ):
@@ -40,8 +41,15 @@ class buttonWithLED:
         self._stateFlag = "flashing"
         pass 
 
-
-    def setPulseSpeed(self, speed:int) -> None:
+    def connectingFlash(self,rate=0.5):
+        "goes through 4 steps once per rate, so a full rotation is rate*4 in seconds"
+        self._flashRate = rate 
+        self._stateFlag = "connectingFlash"
+    def pulse(self, speed):
+        self.setPulseSpeed(speed)
+        self._stateFlag="pulsing"
+        
+    def setPulseSpeed(self, speed:float) -> None:
         """Set a rate of change betwee 0 and 1. The brightness value changes by this amount every 0.01 seconds - so 0.01 means one full cycle every 2 seconds"""
         self._pulsespeed = speed
 
@@ -50,13 +58,18 @@ class buttonWithLED:
         self._continueLoop = False
 
     def _loop(self):
+        newValue = 1
         while self._continueLoop:
-            if datetime.now() < self._flashEndTime and self._stateFlag == "flashing":
-                newValue = self._newFlashValue()
-            elif datetime.now() >= self._flashEndTime and self._stateFlag == "flashing":
-                self._stateFlag = "pulsing"
-                self.setPulseSpeed(0.01)
-            else: 
+    
+            if self._stateFlag == "flashing":
+                if datetime.now() < self._flashEndTime and self._stateFlag == "flashing":
+                    newValue = self._newFlashValue()
+                elif datetime.now() >= self._flashEndTime and self._stateFlag == "flashing":
+                    self._stateFlag = "pulsing"
+                    self.setPulseSpeed(0.01)
+            elif self._stateFlag == "connectingFlash":
+                newValue = self._newConnectingFlashValue()
+            elif self._stateFlag == "pulsing":
                 newValue = self._newPulseValue()
                 newValue = self._bounce(newValue)
             newValue = self._limitNewValue(newValue)
@@ -64,7 +77,7 @@ class buttonWithLED:
             
             self._LED.value = self._pulseValue = newValue
             time.sleep(0.01)
-            
+    
     def swtich_off(self):
         return 
     def switch_on(self):
@@ -90,7 +103,18 @@ class buttonWithLED:
     
     def _newPulseValue(self):
         return self._pulseValue + ( self._pulsedirection * self._pulsespeed)
+    
+    def _newConnectingFlashValue(self) -> float:
+        "goes through 4 steps once per rate, so a full rotation is rate*4 in seconds"
+        flashRate = self._flashRate * 4 #e.g. every 0.5 seconds we change, so a full rotation is 1 second
+        currentTime = time.time_ns() / 1000 / 1000 / 1000  #get time in seconds
+        remainder = currentTime % flashRate  #determine how far through the cycle we are 
+        step = math.floor((remainder / flashRate) * 4 )+1
+        #print("current time in seconds:{} full cycle: {} progress through cycle: {}, as a step {}/4".format(currentTime,flashRate,remainder,step))
         
+        
+        return step*.25
+
     def _newFlashValue(self):
         flashRate = self._flashRate * 2 #e.g. every 0.5 seconds we change, so a full rotation is 1 second
         currentTime = time.time_ns() / 1000 / 1000 / 1000  #get time in seconds
@@ -110,13 +134,17 @@ class buttonWithLED:
     def _onPress(self):
         self._timeLastPresed = datetime.now()
         self.is_active = True
-        timeString = self._timeLastPresed.strftime("%y-%m-%d %H:%M:%S.%f")
-        pass 
+        
+         
     def _onRelease(self):
+        print("Hello :wave:")
         targetTime =  self._timeLastPresed + timedelta(milliseconds= 500)
         diff = math.floor( (targetTime - datetime.now()).total_seconds() * 1000)
         print(diff)
-        if diff > 0:
+        if diff > 495:
+            print("Too fast, not a press")
+            pass 
+        elif diff > 0:
             if isinstance( self.onShortPress , MethodType):
                 self.onShortPress(self)
             pass 

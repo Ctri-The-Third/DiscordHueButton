@@ -1,14 +1,15 @@
 import discord
 import logging
 import gpiozero
-
+import asyncio
 import re
 import datetime
 import math
 import json
 import requests
 
-from configHelper import configHelper
+
+from configHelper import configHelper, buttonProgress, buttonCfg
 from statusLED import buttonWithLED
 LOGOUTPUT = "log"
 
@@ -20,11 +21,10 @@ class ButtonBot(discord.Client):
         
         self.buttons = [] 
         for button in self.config.buttons:
-            
-            self.buttons.append(buttonWithLED(button.LEDOutPin,button.btnInPin,button.btnReactEmoji, button.hueShade))
-        
-        
-        
+            newButton = buttonWithLED(button.LEDOutPin,button.btnInPin,button.btnReactEmoji, button.hueShade)
+            newButton.connectingFlash(.5)
+            self.buttons.append(newButton)
+
         
         self.matchingRegex = re.compile(r"""(It had been [0-9]* days*, [0-9]* hours*, and [0-9]* minutes* since the button was pressed.)""")
         self.registerMessageRegex = re.compile(r"""!btn register""")
@@ -41,8 +41,14 @@ class ButtonBot(discord.Client):
         print(self.user.name)
         print(self.user.id)
         print('------')
+        for button in self.buttons:
+            button.onShortPress = self.onButtonPressShort
+            button.onLongPress = self.onButtonPressLong
+            button.pulse(0.01)
+        
         if len(self.config.openMessages) >= 1:
-            self.buttonLED.setPulseSpeed(0.04)
+            for button in self.buttons:
+                button.setPulseSpeed(0.04) 
 
         
     async def on_message(self,message: discord.message):
@@ -62,23 +68,29 @@ Each time they press it, I keep track. Curious? Check in with !btn stats. I used
 
     async def _checkForStatsRequestMessage(self, message:discord.message):
         if self.statsRequestMessageRegex.match(message.clean_content):
+            messageText = ""
+            for button in self.config.buttons:
+                
+                progress = self.config.getProgress(button.btnInPin)
 
-            timeSince = (datetime.datetime.now() - self.config.lastPressed )
-            timeSinceDays = timeSince.days
-            timeSinceHours = math.floor(timeSince.seconds / 60 /60) % 60
-            timeSinceMinutes = math.floor(timeSince.seconds / 60) % 60
-            despairMessage = self.config.getDespairMessage()
-            messageText = "**The Button:** was last pressed at {8}\nIt has now been pressed {0} times\nIt had been {1} day{2}, {3} hour{4}, and {5} minute{6} since the button was pressed.\n\n> {7}".format(
-                self.config.presses+1,
-                timeSinceDays,
-                "s" if timeSinceDays != 1 else "",
-                timeSinceHours,
-                "s" if timeSinceHours != 1 else "",
-                timeSinceMinutes,
-                "s" if timeSinceMinutes != 1 else "",
-                despairMessage,
-                self.config.lastPressed.strftime(r"%d-%b %H:%M")
-            )
+                timeSince = (datetime.datetime.now() - progress.lastPressed )
+                timeSinceDays = timeSince.days
+                timeSinceHours = math.floor(timeSince.seconds / 60 /60) % 60
+                timeSinceMinutes = math.floor(timeSince.seconds / 60) % 60
+                despairMessage = self.config.getDespairMessage()
+                emoji = "" if  button.btnReactEmoji == None or button.btnReactEmoji == "" else "{} ".format(button.btnReactEmoji)
+                messageText += "**The {emoji}Button:** was last pressed at {7}\nIt has now been pressed {0} times\nIt had been {1} day{2}, {3} hour{4}, and {5} minute{6} since it was pressed.\n\n".format(
+                    progress.timesPressed,
+                    timeSinceDays,
+                    "s" if timeSinceDays != 1 else "",
+                    timeSinceHours,
+                    "s" if timeSinceHours != 1 else "",
+                    timeSinceMinutes,
+                    "s" if timeSinceMinutes != 1 else "",
+                    progress.lastPressed.strftime(r"%d-%b %H:%M"),
+                    emoji = emoji
+                )
+            messageText += "\n> {}".format(despairMessage)
             await message.reply(messageText)
 
 
@@ -150,6 +162,21 @@ Message content copied below for you:
             logging.error("Something went wrong processing a mention! \t %s", e)
 
 
+    def onButtonPressShort(self,button:buttonWithLED):
+        if not self.is_ready():
+            return
+        print("Short press! {}".format(button.notificationEmoji))
+        button.flash(rate=0.2)
+        asyncio.run_coroutine_threadsafe(self.onButtonPressed(button.identifier,additionalReaction=button.notificationEmoji,overideShade=button.notificationShade),self.loop)
+        
+        
+    def onButtonPressLong(self,button:buttonWithLED):
+        if not self.is_ready():
+            return  
+        print("long press! {}".format(button.notificationEmoji))
+        button.flash(rate=0.1)
+        asyncio.run_coroutine_threadsafe(self.onButtonPressed(button.identifier,additionalReaction=button.notificationEmoji,overideShade=button.notificationShade),self.loop)
+        
     async def _checkForButtonMessages(self, message:discord.message) -> None:
         logging.warning("Using depreciated method _checkForButtonMessages - shouldn't be necessary anymore.")
         if message.author.id == self.user.id:
@@ -177,7 +204,7 @@ Message content copied below for you:
                     logging.warning("Couldn't reply to a message - possibly missing the read_message_history permission? _checkForUnegisterMessage")
                     
 
-    async def onButtonPressed(self,additionalReaction = "",overideShade = None):
+    async def onButtonPressed(self,buttonID,additionalReaction = "",overideShade = None):
 
         
         for messageIDs in self.config.openMessages:
@@ -203,8 +230,8 @@ Message content copied below for you:
                     logging.warning("Couldn't add / remove a reaction to close out a paging message %s", e)
             self.config.unregisterOpenMessage(messageIDs["message"],messageIDs["channel"])
 
-        self.config.incrementPresses()
-        self.config.updateLastPressed(datetime.datetime.now())
+        self.config.incrementPresses(buttonID)
+        self.config.updateLastPressed(buttonID, datetime.datetime.now())
         self.config.saveProgress()
         self.maybeNotifyWebhook(overideShade=overideShade)
 
@@ -216,7 +243,7 @@ Message content copied below for you:
             body = json.dumps({"title":title,"description":desc,"author":author})
             params = {}
             if overideShade is not None:
-                params["overideShade"] = overideShade
+                params["shade"] = overideShade
             try:
                 
                 requests.post(url=url,headers=headers,data=body,params=params)
