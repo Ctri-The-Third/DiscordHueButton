@@ -28,6 +28,7 @@ class ButtonBot(discord.Client):
         
         self.matchingRegex = re.compile(r"""(It had been [0-9]* days*, [0-9]* hours*, and [0-9]* minutes* since the button was pressed.)""")
         self.registerMessageRegex = re.compile(r"""!btn register""")
+        self.pingMessageRegex = re.compile(r"""!btn ping""")
         self.unregisterMessageRegex = re.compile(r"""!btn unregister""")
         self.statsRequestMessageRegex = re.compile(r"""!btn(?: statu?s)?""") #!btn stats or !btn
         self.helpMessageRegex = re.compile(r"""!btn help""")
@@ -50,6 +51,20 @@ class ButtonBot(discord.Client):
             for button in self.buttons:
                 button.setPulseSpeed(0.04) 
 
+        foundUser = self.get_user(self.config.users[0])
+        if self.config.error != "":
+            await self.messagePersonOfInterest("Something went wrong during startup, here's the error: \n%s" % (self.config.error), foundUser)
+        
+        if len(self.config.buttons) > 0:
+            message = "Button startup complete here's your save progress:\n"
+            for button_id in self.config._pressProgress:
+                message += "\nPIN_ID {} pressed {} times, last pressed {}" .format(
+                    button_id,
+                    self.config._pressProgress[button_id].timesPressed,
+                    self.config._pressProgress[button_id].lastPressed.strftime(r"%Y-%m-%d %H:%M:%S")
+                )
+            await self.messagePersonOfInterest(message,foundUser)
+
         
     async def on_message(self,message: discord.message):
         await self._checkForMentions(message)
@@ -58,6 +73,16 @@ class ButtonBot(discord.Client):
         await self._checkForUnregisterMessage(message)
         await self._checkForStatsRequestMessage(message)  
         await self._checkForHelpMessage(message)  
+        await self._checkForPingMessage(message)
+
+
+    async def _checkForPingMessage(self,message:discord.message) -> None:
+        if self.pingMessageRegex.match(message.clean_content):
+            members = self.get_all_members()
+            for member in members:
+                outStr = "{}\t{}#{}".format(member.id,member.display_name,member.discriminator)
+                print(outStr)
+        pass
 
 
     async def _checkForHelpMessage(self,message:discord.message) -> None:
@@ -161,6 +186,10 @@ Message content copied below for you:
         except Exception as e:
             logging.error("Something went wrong processing a mention! \t %s", e)
 
+    async def messagePersonOfInterest(self,message,foundUser=None):
+        if foundUser == None:
+            foundUser = self.get_user(self.config.users[0])
+        await foundUser.send(message)
 
     def onButtonPressShort(self,button:buttonWithLED):
         if not self.is_ready():

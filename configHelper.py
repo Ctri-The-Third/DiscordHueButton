@@ -13,21 +13,15 @@ class configHelper():
         keys = {} 
         self.buttons = [] 
         self._pressProgress = {}
-        try: 
-            with open("save.json","r") as f :
-                keys = json.load(f)
-        except Exception as e:
-            self.logger.error("Failed to load save: %s", e)
-
-        if "buttons" in keys:
-            for button in keys.get("buttons"):
-                prg = buttonProgress()
-                prg.fromDict(button)
-                self._pressProgress[prg.buttonID] = prg
-
-        self.openMessages = [] if "openMessages" not in keys else keys["openMessages"]
-
+        self.error = ""
+        
+        
+        if not self.process_save_file("save.json"):
+            self.process_save_file("save.json.old")
+            if len(self._pressProgress) != 0:
+                self.error += "\n old save file load SUCCESS!"
                 
+
         try: 
             with open("config.json","r") as f :
                 keys = json.load(f)
@@ -56,7 +50,31 @@ class configHelper():
         self.notificationEndpoint = keys.get("notificationEndpointHost")
         self.notificationAuthtoken = keys.get("notificationEndpointHeaderToken")
         self.notificationEnabled = True if self.notificationEndpoint is not None and self.notificationAuthtoken is not None else None
+    
+    def process_save_file(self,path):
         
+        
+        try: 
+            with open(path,"r") as f :
+                keys = json.load(f)
+        except Exception as e:
+            
+            self.logger.error("Failed to load save: %s", e)
+            self.error += "Failed to load save: %s" % (e)
+            return False
+
+        if "buttons" in keys:
+            for button in keys.get("buttons"):
+                prg = buttonProgress()
+                prg.fromDict(button)
+                self._pressProgress[prg.buttonID] = prg
+
+        self.openMessages = [] if "openMessages" not in keys else keys["openMessages"]
+        return True 
+
+
+
+
 
     def getDespairMessage(self) -> str:
         if len(self.despairMessages) == 0:
