@@ -34,6 +34,7 @@ class configHelper():
             
         self.channels = [] if "announcementChannels" not in keys else keys["announcementChannels"]
         btns = keys.get("buttons")
+        btns = {} if btns is None else btns
         for btn in btns:
             newBtn = buttonCfg(btn)
             self.buttons.append(newBtn)

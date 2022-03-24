@@ -16,7 +16,7 @@ LOGOUTPUT = "log"
 class ButtonBot(discord.Client):
     def __init__(self, *, loop=None, **options):
         super().__init__(loop=loop, **options)
-        logging.basicConfig(filename=LOGOUTPUT, filemode="a+")
+        
         self.config = configHelper()
         
         self.buttons = [] 
@@ -50,7 +50,9 @@ class ButtonBot(discord.Client):
         if len(self.config.openMessages) >= 1:
             for button in self.buttons:
                 button.setPulseSpeed(0.04) 
-
+        if len(self.config.users) == 0:
+            logging.warning("No users set up in config.json! Skipping startup message")
+            return
         foundUser = self.get_user(self.config.users[0])
         if self.config.error != "":
             await self.messagePersonOfInterest("Something went wrong during startup, here's the error: \n%s" % (self.config.error), foundUser)
